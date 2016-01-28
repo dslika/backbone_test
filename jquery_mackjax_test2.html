@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <title>MockjaxSample</title>
+</head>
+
+<body>
+<h1>MarionetteSample</h1>
+
+<div id="contact-region"></div>
+
+<script type="text/template" id="contact-template">
+  <dl>
+    <dt>Name</dt>
+    <dd><%- name %></dd>
+    <dt>Age</dt>
+    <dd><%- age %></dd>
+  </dl>
+</script>
+
+<script src="bower_components/jquery/dist/jquery.min.js"></script>
+<script src="bower_components/underscore/underscore-min.js"></script>
+<script src="bower_components/backbone/backbone-min.js"></script>
+<script src="bower_components/backbone.marionette/lib/backbone.marionette.min.js"></script>
+<!--<script src="bower_components/backbone.babysitter/lib/backbone.babysitter.js"></script>-->
+<!--<script src="bower_components/backbone.wreqr/lib/backbone.wreqr.js"></script>-->
+<!--<script src="bower_components/backbone.stickit/backbone.stickit.js"></script>-->
+<script>
+  var Contact = Backbone.Marionette.ItemView.extend({
+    el: '#contact-region',
+    template: '#contact-template'
+  });
+
+  var Person = Backbone.Model.extend({
+    defaults: {
+      name: 'Alice',
+      age: 20
+    }
+  });
+
+  var person = new Person();
+  var contact = new Contact({
+    model: person
+  });
+
+  contact.render();
+
+</script>
+</body>
+</html>

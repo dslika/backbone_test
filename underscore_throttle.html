@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Debounce Sample</title>
+</head>
+
+<body>
+<div id="main"></div>
+
+<script id="user_template" type="text/template">
+  <button class="update-button">Update</button>
+
+  <div>
+    <label>FirstName:</label>
+    <%= firstName %>
+  </div>
+
+  <div>
+    <label>LastName:</label>
+    <%= lastName %>
+  </div>
+
+  <div>
+    <label>RenderCount:</label>
+    <%= renderCount %>
+  </div>
+</script>
+
+<script src="bower_components/jquery/dist/jquery.js"></script>
+<script src="bower_components/underscore/underscore.js"></script>
+<script src="bower_components/backbone/backbone.js"></script>
+
+<script type="text/javascript">
+  var User = Backbone.Model.extend({
+    defaults: {
+      firstName: "",
+      lastName: "",
+      age: 0
+    }
+  });
+
+  var UserView = Backbone.View.extend({
+    template: _.template($("#user_template").html()),
+    el: $("#main"),
+    events: {
+      "click .update-button": "onUpdate"
+    },
+
+    initialize: function() {
+      this.renderCount = 0;
+
+      // firstName と lastName を 10 回更新すると、
+      // 合計で 20 回 render が呼ばれてしまう
+      //this.model.on("change", this.render, this);
+
+      // throttle だと、まず1度描画してから 100ms 待つため、
+      // 少しちらついてしまう
+      //this.model.on("change", _.throttle(this.render, 100), this);
+
+      // debounce だと 100ms 待ってから描画するので
+      // ちらつかない
+      this.model.on("change", _.debounce(this.render, 100), this);
+    },
+
+    render: function() {
+      var json = this.model.toJSON();
+
+      // テンプレートの描画回数も出力する
+      json.renderCount = ++this.renderCount;
+
+      var html = this.template(json);
+      this.$el.html(html);
+      return this;
+    },
+
+    // 2 つのフィールドを10回更新する
+    // 何も対策をしないと、change イベントが 20 回発生する
+    onUpdate: function() {
+      for (var i = 0; i < 10; i++) {
+        this.model.set("firstName", "foo" + i);
+        this.model.set("lastName", "bar" + i);
+      }
+    }
+  });
+
+  $(function() {
+    window.main = new UserView({model: new User()});
+    window.main.render();
+  });
+</script>
+</body>
+</html>

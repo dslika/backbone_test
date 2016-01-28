@@ -1,0 +1,247 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>stickit sample</title>
+</head>
+
+<body>
+<h1>Todo</h1>
+
+<div id="main"></div>
+
+<div id="new_task">
+  <input class="js-name-input" type="text"/>
+  <button class="js-add-button">Add</button>
+</div>
+
+<!--タスク描画用テンプレート-->
+<script id="task_template" type="text/template">
+  <div class="js-normal-view">
+    <input class="js-completed-input" type="checkbox"/>
+    <span class="js-task-name js-task-uncompleted"></span>
+    <del class="js-task-completed"><span class="js-task-name"></span></del>
+    <a class="js-edit-task" href="javascript:void(0);">[edit]</a>
+  </div>
+
+  <!--その場編集用 DOM 要素-->
+  <div class="js-edit-view">
+    <input class="js-name-input" type="text"/>
+    <a class="js-save-task" href="javascript:void(0);">[save]</a>
+    <a class="js-delete-task" href="javascript:void(0);">[del]</a>
+    <a class="js-cancel-task" href="javascript:void(0);">[cancel]</a>
+  </div>
+</script>
+
+<script src="bower_components/jquery/dist/jquery.js"></script>
+<script src="bower_components/underscore/underscore.js"></script>
+<script src="bower_components/backbone/backbone.js"></script>
+<script src="bower_components/backbone.stickit/backbone.stickit.js"></script>
+<script>
+  // タスク
+  var Task = Backbone.Model.extend({
+    defaults: {
+      name: "",
+      completed: false,
+      editing: false
+    },
+    beginEdit: function() {
+      this.set("editing", true);
+    },
+    endEdit: function() {
+      this.set("editing", false);
+    },
+    destroy: function() {
+      this.trigger("destroy", this);
+    }
+  });
+
+  // タスクのコレクション
+  var TaskList = Backbone.Collection.extend({
+    model: Task,
+
+    initialize: function() {
+      this.on("add", this.onAdd, this);
+    },
+
+    onAdd: function(model) {
+      model.on("destroy", this.onDestroy, this);
+    },
+
+    onDestroy: function(model) {
+      model.off("add", this.onAdd);
+      model.off("destroy", this.onDestroy);
+      this.remove(model);
+    }
+  });
+
+  // タスクを表示するビュー
+  var TaskView = Backbone.View.extend({
+    template: _.template($("#task_template").html()),
+
+    // バインディングの設定
+    bindings: {
+      // タスク名を表示する
+      ".js-task-name": "name",
+
+      // タスクの完了・未完了をチェックボックスで切り替える
+      ".js-completed-input": "completed",
+
+      // その場編集モードを切り替えたとき input の値をリセットする
+      ".js-name-input": {
+        observe: ["name", "editing"],
+        onGet: function(values) {
+          return values[0];
+        },
+        updateModel: false
+      },
+
+      // 未完了タスク名表示用 DOM 要素の表示を切り替える
+      ".js-task-uncompleted": {
+        observe: "completed",
+        visible: function(val, options) {
+          return !val;
+        }
+      },
+
+      // 完了したタスクの打ち消し線の表示を切り替える
+      ".js-task-completed": {
+        observe: "completed",
+        visible: function(val, options) {
+          return !!val;
+        }
+      },
+
+      // 通常モード用要素の表示を切り替える
+      ".js-normal-view": {
+        observe: "editing",
+        visible: function(val, options) {
+          return !val;
+        }
+      },
+
+      // その場編集モード用要素の表示を切り替える
+      ".js-edit-view": {
+        observe: "editing",
+        visible: function(val, options) {
+          return !!val
+        }
+      }
+    },
+
+    events: {
+      "click .js-edit-task": "onEdit",
+      "click .js-save-task": "onSave",
+      "click .js-delete-task": "onDelete",
+      "click .js-cancel-task": "onCancel"
+    },
+
+    // input の値を取り出してモデルを更新
+    onSave: function(e) {
+      var name = this.$el.find(".js-name-input").val();
+      this.model.set("name", name);
+      this.model.endEdit();
+    },
+
+    onDelete: function(e) {
+      this.model.destroy();
+    },
+
+    onEdit: function(e) {
+      this.model.beginEdit();
+    },
+
+    onCancel: function(e) {
+      this.model.endEdit();
+    },
+
+    initialize: function() {
+      this.model.on("destroy", function(model) {
+        this.remove();
+      }, this);
+    },
+
+    render: function() {
+      var html = this.template({});
+      this.$el.html(html);
+      this.stickit();
+      return this;
+    }
+  });
+
+  // タスクの一覧を表示するビュー
+  var TaskListView = Backbone.View.extend({
+    initialize: function() {
+      this.collection.on("add", this.addOne, this);
+    },
+
+    addOne: function(task) {
+      var view = new TaskView({model: task});
+      view.render();
+      this.$el.append(view.el);
+    },
+
+    render: function() {
+      this.$el.empty();
+      this.collection.each(this.addOne, this);
+      return this;
+    }
+  });
+
+  // 登録フォーム
+  var TaskFormView = Backbone.View.extend({
+    el: $("#new_task"),
+
+    bindings: {
+      ".js-name-input": "name"
+    },
+    events: {
+      "click .js-add-button": "onAdd"
+    },
+
+    initialize: function() {
+      this.model = new Task();
+    },
+
+    onAdd: function(e) {
+      var task = this.model.clone();
+      this.collection.add(task);
+      this.model.set("name", "");
+    },
+
+    render: function() {
+      this.stickit();
+      return this;
+    }
+  });
+
+  // ルーター
+  // エントリポイントでもある
+  var MainRouter = Backbone.Router.extend({
+    routes: {
+      "": "index"
+    },
+
+    initialize: function() {
+      this.taskList = new TaskList();
+      this.taskList.add({name: "foo"});
+      this.taskList.add({name: "bar", completed: true});
+
+      this.taskForm = new TaskFormView({collection: this.taskList});
+      this.taskForm.render();
+    },
+
+    index: function() {
+      var view = new TaskListView({collection: this.taskList});
+      view.render();
+      $("#main").html(view.el);
+    }
+  });
+
+  $(function() {
+    window.router = new MainRouter();
+    Backbone.history.start();
+  });
+</script>
+</body>
+</html>

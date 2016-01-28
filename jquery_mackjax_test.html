@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <title>MockjaxSample</title>
+</head>
+
+<body>
+<h1>MockjaxSample</h1>
+
+<div id="main"></div
+>
+<!--ブログエントリを描画するときに使うテンプレート-->
+<script id="entry-template" type="text/template">
+  <h2><%- title %></h2>
+
+  <div>
+    <%- content %>
+  </div>
+</script>
+
+<script src="bower_components/jquery/dist/jquery.js"></script>
+<script src="bower_components/underscore/underscore.js"></script>
+<script src="bower_components/backbone/backbone.js"></script>
+<script src="bower_components/jquery-mockjax/dist/jquery.mockjax.js"></script>
+<script>
+  // ブログエントリ。
+  var Entry = Backbone.Model.extend({
+    defaults: {
+      title: "",
+      content: ""
+    }
+  });
+
+  // ブログ。
+  var Blog = Backbone.Collection.extend({
+    model: Entry,
+
+    // fetch メソッドでサーバーからデータを取得するには、
+    // url 属性を定義する必要がある。
+    // url はメソッドでもいい。
+    url: "blog/"
+  });
+
+  // ブログエントリを表示するビュー。
+  var EntryView = Backbone.View.extend({
+    template: _.template($("#entry-template").html()),
+    render: function() {
+      var json = this.model.toJSON();
+      var html = this.template(json);
+      $(this.el).html(html);
+      return this;
+    }
+  });
+
+  // メインのビュー。
+  var BlogView = Backbone.View.extend({
+    el: $("#main"),
+    render: function() {
+      this.model.each(function(entry) {
+        var view = new EntryView({model: entry});
+        view.render();
+        $(this.el).append(view.el);
+      }, this);
+      return this;
+    }
+  });
+
+  // $.ajax のモックを登録。
+  // url に指定した URL に $.ajax でアクセスすると、
+  // responseText に指定したデータが返ってくる。
+  // 下では配列を返しているけど、オブジェクトを返してもいい。
+  $.mockjax({
+    url: "blog/",
+    responseText: [
+      {title: "foo", content: "bar"},
+      {title: "hoge", content: "fuga"}
+    ]
+  });
+
+  window.App = new BlogView({model: new Blog()});
+
+  // fetch メソッドを使ってサーバーからデータを取得する。>
+  window.App.model.fetch({
+    success: function(resp, xhr) {
+      // データの取得に成功したら描画する。
+      window.App.render();
+    }
+  });
+</script>
+</body>
+</html>
